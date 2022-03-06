@@ -80,16 +80,16 @@ pub async fn launch_biopoem(
   session: &Session,
   remote_workdir: &str,
   webhook_url: &str,
-  port: &str,
+  port: u16,
 ) {
+  info!("Launch biopoem...");
   let biopoem_output = session
     .command(format!("{}/biopoem", remote_workdir))
     .raw_arg(format!(
-      "--workdir {} --host 0.0.0.0 --webhook {} --port {} --dag dag.factfile &",
-      remote_workdir, webhook_url, port
+      "client --workdir {} --host 0.0.0.0 --webhook {} --port {} --dag dag.factfile 2> {}/init.log",
+      remote_workdir, webhook_url, port, remote_workdir
     ))
-    .output()
-    .await
+    .spawn()
     .unwrap();
   info!("{:?}", biopoem_output);
 }

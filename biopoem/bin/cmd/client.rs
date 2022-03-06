@@ -37,7 +37,7 @@ pub struct Arguments {
   dag: String,
 
   /// Url of the dag file.
-  #[structopt(name = "webhook", short = "W", long = "webhook")]
+  #[structopt(name = "webhook", short = "W", long = "webhook", default_value = "")]
   webhook: String,
 }
 
@@ -141,7 +141,11 @@ pub async fn run(args: &Arguments) {
   let webhook_url = args.webhook.clone();
   tokio::spawn(async move {
     info!(target:"stdout", "Launch DAG engine with {}", &dag);
-    let exit_code = execute_dag(destfile, Some(webhook_url));
+    let webhook_url: Option<String> = match &webhook_url == "" {
+      true => None,
+      false => Some(webhook_url),
+    };
+    let exit_code = execute_dag(destfile, webhook_url);
 
     let statusfile = "status";
 

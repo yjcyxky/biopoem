@@ -157,6 +157,8 @@ pub async fn run(args: &Arguments) {
       .unwrap();
 
     remote::init_env(&session, remote_workdir, &destfile, biopoem_bin_url).await;
+    remote::launch_biopoem(&session, remote_workdir, "", 3000).await;
+    session.close().await.unwrap();
   }
 
   // Get logs periodically
