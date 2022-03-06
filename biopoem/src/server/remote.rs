@@ -1,6 +1,6 @@
-use log::info;
-use openssh::{Error, Session, SessionBuilder};
-use std::path::{Path, PathBuf};
+use log::{error, info};
+use openssh::{Error, KnownHosts, Session, SessionBuilder};
+use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
 
 pub async fn init_session(
@@ -14,6 +14,7 @@ pub async fn init_session(
     .user(username.to_string())
     .port(port)
     .keyfile(keyfile)
+    .known_hosts_check(KnownHosts::Accept)
     .control_directory("/tmp");
 
   info!(
@@ -57,7 +58,7 @@ pub async fn init_env(
   w.close().await.unwrap();
 
   info!("Download biopoem binary.");
-  let output = session
+  match session
     .command("wget")
     .raw_arg(format!(
       "{} -O {}/{}",
@@ -65,31 +66,46 @@ pub async fn init_env(
     ))
     .output()
     .await
-    .unwrap();
-  info!("{:?}", output);
+  {
+    Err(msg) => {
+      error!("{:?}", msg);
+    }
+    Ok(output) => {
+      info!("{:?}", output);
+    }
+  }
 
-  session
+  match session
     .command("chmod")
     .raw_arg(format!("a+x {}/biopoem", remote_workdir))
     .output()
     .await
-    .unwrap();
+  {
+    Err(msg) => {
+      error!("{:?}", msg);
+    }
+    Ok(output) => {
+      info!("{:?}", output);
+    }
+  }
 }
 
-pub async fn launch_biopoem(
-  session: &Session,
-  remote_workdir: &str,
-  webhook_url: &str,
-  port: u16,
-) {
+pub async fn launch_biopoem(session: &Session, remote_workdir: &str, webhook_url: &str, port: u16) {
   info!("Launch biopoem...");
-  let biopoem_output = session
-    .command(format!("{}/biopoem", remote_workdir))
+  // Why must need 2>&1? More details on https://askubuntu.com/a/1129702
+  match session
+    .command("nohup")
     .raw_arg(format!(
-      "client --workdir {} --host 0.0.0.0 --webhook {} --port {} --dag dag.factfile 2> {}/init.log",
-      remote_workdir, webhook_url, port, remote_workdir
+      "{}/biopoem client --workdir {} --host 0.0.0.0 --webhook {} --port {} --dag dag.factfile > {}/init.log 2>&1 &",
+      remote_workdir, remote_workdir, webhook_url, port, remote_workdir
     ))
-    .spawn()
-    .unwrap();
-  info!("{:?}", biopoem_output);
+    .output()
+    .await {
+      Err(msg) => {
+        error!("{:?}", msg);
+      },
+      Ok(output) => {
+        info!("{:?}", output);
+      }
+    };
 }

@@ -89,24 +89,10 @@ fn init_logger() -> Result<log4rs::Handle, String> {
   })
 }
 
-fn makedir(dir: &str) {
-  if !Path::new(&dir).exists() {
-    match fs::create_dir_all(dir) {
-      Err(err) => {
-        println!("Cannot create the directory {}, {}", dir, err);
-        process::exit(biopoem_api::PROC_OTHER_ERROR);
-      }
-      Ok(_) => {
-        println!("Create the directory {}", dir);
-      }
-    };
-  }
-}
-
 #[tokio::main]
 pub async fn run(args: &Arguments) {
   let workdir = &args.workdir;
-  makedir(workdir);
+  biopoem_api::makedir(workdir);
 
   let tmplpath = PathBuf::from(&args.dag_template);
   let dag_template = fs::canonicalize(tmplpath).unwrap();
@@ -138,27 +124,37 @@ pub async fn run(args: &Arguments) {
   let hosts = server::host::read_hosts(&args.hosts);
   for host in &hosts {
     // Generate dag file.
-    let subdir = format!("results/{}", &host.hostname());
-    makedir(&subdir);
+    let hostname = host.hostname();
+    let subdir = format!("results/{}", hostname);
+    biopoem_api::makedir(&subdir);
 
     let destfile = Path::new(&subdir).join("dag.factfile");
     let template = fs::read_to_string(&dag_template).unwrap();
 
     info!("Rendering the dag template to {}", destfile.display());
-    let result = dag::render_template(&template, &variable_file);
-    fs::write(&destfile, result).unwrap();
+    match dag::render_template(&template, &variable_file, hostname) {
+      Some(result) => {
+        fs::write(&destfile, result).unwrap();
+        // Initialize (Upload biopoem and dag file.)
+        let port = host.port().parse().unwrap();
+        let remote_workdir = &args.remote_workdir;
+        let biopoem_bin_url = "http://nordata-cdn.oss-cn-shanghai.aliyuncs.com/biopoem/biopoem";
+        let session = remote::init_session(host.ipaddr(), port, host.username(), &keyfile)
+          .await
+          .unwrap();
 
-    // Initialize (Upload biopoem and dag file.)
-    let port = host.port().parse().unwrap();
-    let remote_workdir = &args.remote_workdir;
-    let biopoem_bin_url = "http://nordata-cdn.oss-cn-shanghai.aliyuncs.com/biopoem/biopoem";
-    let session = remote::init_session(host.ipaddr(), port, host.username(), &keyfile)
-      .await
-      .unwrap();
-
-    remote::init_env(&session, remote_workdir, &destfile, biopoem_bin_url).await;
-    remote::launch_biopoem(&session, remote_workdir, "", 3000).await;
-    session.close().await.unwrap();
+        remote::init_env(&session, remote_workdir, &destfile, biopoem_bin_url).await;
+        remote::launch_biopoem(&session, remote_workdir, "", 3000).await;
+        session.close().await.unwrap();
+      }
+      None => {
+        error!(
+          "Not found a context in {} with {}",
+          variable_file.display(),
+          hostname
+        );
+      }
+    };
   }
 
   // Get logs periodically

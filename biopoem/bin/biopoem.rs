@@ -7,6 +7,7 @@ mod cmd;
 use structopt::StructOpt;
 use cmd::client;
 use cmd::server;
+use cmd::deployer;
 
 /// A suite of programs for handling big omics data.
 #[derive(StructOpt, Debug)]
@@ -30,7 +31,9 @@ enum SubCommands {
   #[structopt(name="client")]
   Client(client::Arguments),
   #[structopt(name="server")]
-  Server(server::Arguments)
+  Server(server::Arguments),
+  #[structopt(name="deployer")]
+  Deployer(deployer::Arguments)
 }
 
 fn main() {
@@ -42,6 +45,9 @@ fn main() {
     },
     SubCommands::Server(arguments) => {
       server::run(&arguments);
+    },
+    SubCommands::Deployer(arguments) => {
+      deployer::run(&arguments);
     }
   }
 }
