@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::{env, fs, process};
 use structopt::StructOpt;
 
-/// Server
+/// Server for Biopoem
 #[derive(StructOpt, PartialEq, Debug)]
 #[structopt(setting=structopt::clap::AppSettings::ColoredHelp, name="Biopoem - Server", author="Jingcheng Yang <yjcyxky@163.com>")]
 pub struct Arguments {
@@ -48,6 +48,15 @@ pub struct Arguments {
     default_value = "keyfile"
   )]
   keyfile: String,
+
+  /// The working directory on remote machine.
+  #[structopt(
+    name = "remote-workdir",
+    short = "r",
+    long = "remote-workdir",
+    default_value = "/mnt/biopoem"
+  )]
+  remote_workdir: String,
 }
 
 fn init_logger() -> Result<log4rs::Handle, String> {
@@ -94,6 +103,7 @@ fn makedir(dir: &str) {
   }
 }
 
+#[tokio::main]
 pub async fn run(args: &Arguments) {
   let workdir = &args.workdir;
   makedir(workdir);
@@ -140,16 +150,11 @@ pub async fn run(args: &Arguments) {
 
     // Initialize (Upload biopoem and dag file.)
     let port = host.port().parse().unwrap();
-    let remote_workdir = "/mnt";
+    let remote_workdir = &args.remote_workdir;
     let biopoem_bin_url = "http://nordata-cdn.oss-cn-shanghai.aliyuncs.com/biopoem/biopoem";
-    let session = remote::init_session(
-      host.ipaddr(),
-      port,
-      host.username(),
-      &keyfile,
-      remote_workdir,
-    )
-    .await.unwrap();
+    let session = remote::init_session(host.ipaddr(), port, host.username(), &keyfile)
+      .await
+      .unwrap();
 
     remote::init_env(&session, remote_workdir, &destfile, biopoem_bin_url).await;
   }

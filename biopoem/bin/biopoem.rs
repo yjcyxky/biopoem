@@ -8,7 +8,7 @@ use structopt::StructOpt;
 use cmd::client;
 use cmd::server;
 
-/// A suite of programs for interacting with bam file
+/// A suite of programs for handling big omics data.
 #[derive(StructOpt, Debug)]
 #[structopt(setting=structopt::clap::AppSettings::ColoredHelp, name = "Biopoem for DAG Task with Large-scale Servers.", author="Jingcheng Yang <yjcyxky@163.com>")]
 struct Opt {

@@ -8,19 +8,42 @@ pub async fn init_session(
   port: u16,
   username: &str,
   keyfile: &PathBuf,
-  remote_workdir: &str,
 ) -> Result<Session, Error> {
   let mut session = SessionBuilder::default();
   session
     .user(username.to_string())
     .port(port)
-    .keyfile(Path::new(keyfile).to_path_buf())
-    .control_directory(remote_workdir);
+    .keyfile(keyfile)
+    .control_directory("/tmp");
 
+  info!(
+    "Connect {} with {}(user) and {}(keyfile)",
+    host,
+    username,
+    keyfile.display()
+  );
   return session.connect(host).await;
 }
 
-pub async fn init_env(session: &Session, remote_workdir: &str, dag: &PathBuf, biopoem_bin_url: &str) {
+pub async fn init_env(
+  session: &Session,
+  remote_workdir: &str,
+  dag: &PathBuf,
+  biopoem_bin_url: &str,
+) {
+  info!(
+    "Create the working directory({}) on remote machine.",
+    remote_workdir
+  );
+  let output = session
+    .command("mkdir")
+    .raw_arg(format!("-p {}", remote_workdir))
+    .output()
+    .await
+    .unwrap();
+  info!("{:?}", output);
+
+  info!("Upload dag.factfile.");
   let mut sftp = session.sftp();
   let mut w = sftp
     .write_to(format!("{}/{}", remote_workdir, "dag.factfile"))
@@ -33,10 +56,11 @@ pub async fn init_env(session: &Session, remote_workdir: &str, dag: &PathBuf, bi
   // flush and close the remote file, absorbing any final errors
   w.close().await.unwrap();
 
-  info!("Download biopoem binary");
+  info!("Download biopoem binary.");
   let output = session
-    .command(format!(
-      "wget {} -O {}/{}",
+    .command("wget")
+    .raw_arg(format!(
+      "{} -O {}/{}",
       biopoem_bin_url, remote_workdir, "biopoem"
     ))
     .output()
@@ -45,7 +69,8 @@ pub async fn init_env(session: &Session, remote_workdir: &str, dag: &PathBuf, bi
   info!("{:?}", output);
 
   session
-    .command(format!("chmod a+x {}/biopoem", remote_workdir))
+    .command("chmod")
+    .raw_arg(format!("a+x {}/biopoem", remote_workdir))
     .output()
     .await
     .unwrap();
@@ -58,8 +83,9 @@ pub async fn launch_biopoem(
   port: &str,
 ) {
   let biopoem_output = session
-    .command(format!(
-      "biopoem --workdir {} --host 0.0.0.0 --webhook {} --port {} --dag dag.factfile &",
+    .command(format!("{}/biopoem", remote_workdir))
+    .raw_arg(format!(
+      "--workdir {} --host 0.0.0.0 --webhook {} --port {} --dag dag.factfile &",
       remote_workdir, webhook_url, port
     ))
     .output()
