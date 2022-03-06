@@ -35,6 +35,10 @@ pub struct Arguments {
   /// Url of the dag file.
   #[structopt(name = "dag", short = "d", long = "dag")]
   dag: String,
+
+  /// Url of the dag file.
+  #[structopt(name = "webhook", short = "W", long = "webhook")]
+  webhook: String,
 }
 
 pub async fn download_dag_file(dag_file_url: &str, destfile: &str) {
@@ -116,20 +120,28 @@ pub async fn run(args: &Arguments) {
     process::exit(biopoem_api::PROC_OTHER_ERROR);
   };
 
+  let destfile = "dag.factfile";
   match is_valid_url(&args.dag) {
-    Err(msg) => {
-      error!(target:"stdout", "dag argument ({}) is not valid, {}", &args.dag, msg);
-      process::exit(biopoem_api::PROC_OTHER_ERROR);
+    Err(_) => {
+      if !Path::new(&args.dag).exists() {
+        error!(target:"stdout", "dag argument ({}) is not valid, must be a http(s):// link or a local file.", &args.dag);
+        process::exit(biopoem_api::PROC_OTHER_ERROR);
+      } else {
+        if destfile != &args.dag {
+          fs::copy(&args.dag, destfile).unwrap();
+        }
+      }
     }
-    _ => {}
+    _ => {
+      download_dag_file(&args.dag, destfile).await;
+    }
   }
 
   let dag = args.dag.clone();
+  let webhook_url = args.webhook.clone();
   tokio::spawn(async move {
     info!(target:"stdout", "Launch DAG engine with {}", &dag);
-    let destfile = "dag.factfile";
-    download_dag_file(&dag, destfile).await;
-    let exit_code = execute_dag(destfile, None);
+    let exit_code = execute_dag(destfile, Some(webhook_url));
 
     let statusfile = "status";
 

@@ -2,6 +2,7 @@
 extern crate lazy_static;
 
 pub mod client;
+pub mod server;
 
 pub const PROC_SUCCESS: i32 = 0;
 pub const PROC_PARSE_ERROR: i32 = 1;
