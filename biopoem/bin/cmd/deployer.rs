@@ -37,11 +37,7 @@ pub struct Arguments {
   template: String,
 
   /// Region, such as cn-shanghai
-  #[structopt(
-    name = "region",
-    short = "r",
-    long = "region"
-  )]
+  #[structopt(name = "region", short = "r", long = "region")]
   region: String,
 
   /// Available Zone
@@ -77,6 +73,20 @@ pub struct Arguments {
   /// Activate destroy mode.
   #[structopt(name = "destroy", short = "d", long = "destroy")]
   destroy: bool,
+}
+
+fn notexists_exit(path: &PathBuf, msg: &str) {
+  if !Path::exists(path.as_path()) {
+    error!("{}", msg);
+    process::exit(biopoem_api::PROC_OTHER_ERROR);
+  }
+}
+
+fn exists_exit(path: &PathBuf, msg: &str) {
+  if Path::exists(path.as_path()) {
+    error!("{}", msg);
+    process::exit(biopoem_api::PROC_OTHER_ERROR);
+  }
 }
 
 fn init_logger() -> Result<log4rs::Handle, String> {
@@ -115,30 +125,33 @@ pub async fn run(args: &Arguments) {
     process::exit(biopoem_api::PROC_OTHER_ERROR);
   };
 
-  info!("Set the current working directory to {}", &workdir);
-  match env::set_current_dir(&workdir) {
-    Err(msg) => {
-      println!("Cannot set working directory {}.", &msg);
-      process::exit(biopoem_api::PROC_OTHER_ERROR);
-    }
-    _ => {}
-  };
-
   // Deploy servers by terraform
   let subdir = "terraform";
   biopoem_api::makedir(&subdir);
 
   if args.destroy {
-    if let Some(destroy_output) =
-      deployer::run("destroy", &args.access_key, &args.secret_key, &args.region)
-    {
+    if let Some(destroy_output) = deployer::run(
+      "destroy",
+      subdir,
+      &args.access_key,
+      &args.secret_key,
+      &args.region,
+    ) {
       info!("Destroy Servers \n\n {}", destroy_output);
     }
   } else {
     let tmplpath = PathBuf::from(&args.template);
+    notexists_exit(
+      &tmplpath,
+      &format!("Not found the file {}", tmplpath.display()),
+    );
     let template = fs::canonicalize(tmplpath).unwrap();
 
     let destfile = Path::new(&subdir).join("terraform.tf");
+    exists_exit(
+      &destfile,
+      &format!("The file {} exists!", destfile.display()),
+    );
     let template = fs::read_to_string(&template).unwrap();
     let data = deployer::Config::new(
       &args.region,
@@ -149,20 +162,62 @@ pub async fn run(args: &Arguments) {
       "biopoem-secret-key",
     );
 
+    info!("Set the current working directory to {}", &workdir);
+    match env::set_current_dir(&workdir) {
+      Err(msg) => {
+        println!("Cannot set working directory {}.", &msg);
+        process::exit(biopoem_api::PROC_OTHER_ERROR);
+      }
+      _ => {}
+    };
+
     info!("Rendering the terraform template to {}", destfile.display());
     match deployer::render_template(&template, &data) {
       Some(result) => {
         fs::write(&destfile, result).unwrap();
-        if let Some(init_output) =
-          deployer::run("init", &args.access_key, &args.secret_key, &args.region)
-        {
+
+        // Initialize Terraform
+        if let Some(init_output) = deployer::run(
+          "init",
+          subdir,
+          &args.access_key,
+          &args.secret_key,
+          &args.region,
+        ) {
           info!("Initialize Terraform \n\n {}", init_output);
         }
 
-        if let Some(apply_output) =
-          deployer::run("apply", &args.access_key, &args.secret_key, &args.region)
-        {
+        // Deploy Servers
+        if let Some(apply_output) = deployer::run(
+          "apply",
+          subdir,
+          &args.access_key,
+          &args.secret_key,
+          &args.region,
+        ) {
           info!("Deploy Servers \n\n {}", apply_output);
+        }
+
+        // Get outputs
+        if let Some(outputs) = deployer::run(
+          "output",
+          subdir,
+          &args.access_key,
+          &args.secret_key,
+          &args.region,
+        ) {
+          info!("Output {}", outputs);
+          let public_ips: Vec<String> = serde_json::from_str(&outputs).unwrap();
+
+          info!("Generate hosts file");
+          exists_exit(&PathBuf::from("hosts"), "The file hosts exists!");
+          let hosts = deployer::gen_hosts(&data, &public_ips);
+          println!("{:?}, {:?}", hosts, data);
+          let mut wtr = csv::Writer::from_writer(fs::File::create("hosts").unwrap());
+          for host in hosts {
+            wtr.serialize(host).unwrap();
+          }
+          wtr.flush().unwrap();
         }
       }
       None => {}

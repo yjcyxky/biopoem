@@ -6,13 +6,30 @@ use std::str;
 use tera::{Context, Tera};
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Server {
-  host_name: String,
-  instance_name: String,
-  instance_type: String,
-  key_name: String,
-  private_ip: String,
-  public_ip: String,
+pub struct Host {
+  hostname: String,
+  ipaddr: String,
+  private_ipaddr: String,
+  port: String,
+  username: String,
+}
+
+impl Host {
+  pub fn new(
+    hostname: String,
+    ipaddr: String,
+    private_ipaddr: String,
+    port: String,
+    username: String,
+  ) -> Self {
+    Host {
+      hostname: hostname,
+      ipaddr: ipaddr,
+      private_ipaddr: private_ipaddr,
+      port: port,
+      username: username,
+    }
+  }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -42,7 +59,7 @@ impl Config {
       std::process::exit(127);
     }
 
-    for i in 1..num_of_hosts {
+    for i in 0..num_of_hosts {
       ipaddrs.push(format!("172.16.0.{}", i));
     }
 
@@ -56,6 +73,21 @@ impl Config {
       keypair_name: keypair_name.to_string(),
     }
   }
+}
+
+pub fn gen_hosts(data: &Config, public_ips: &Vec<String>) -> Vec<Host> {
+  let mut hosts: Vec<Host> = vec![];
+  for (idx, ipaddr) in data.ipaddrs.iter().enumerate() {
+    hosts.push(Host {
+      hostname: format!("biopoem{:03}", idx + 1),
+      private_ipaddr: ipaddr.clone(),
+      ipaddr: public_ips[idx].to_string(),
+      port: "22".to_string(),
+      username: "root".to_string(),
+    })
+  }
+
+  hosts
 }
 
 pub fn render_template(template: &str, data: &Config) -> Option<String> {
@@ -72,12 +104,19 @@ fn vecu8_to_string(data: &Vec<u8>) -> String {
   return s;
 }
 
-pub fn run(command: &str, access_key: &str, secret_key: &str, region: &str) -> Option<String> {
+pub fn run(
+  command: &str,
+  dir: &str,
+  access_key: &str,
+  secret_key: &str,
+  region: &str,
+) -> Option<String> {
   let mut commands = HashMap::new();
   commands.insert("init", vec!["init", "-input=false"]);
   commands.insert("apply", vec!["apply", "-input=false"]);
   commands.insert("show", vec!["show", "-json"]);
   commands.insert("destroy", vec!["destroy", "-input=true"]);
+  commands.insert("output", vec!["output", "-json", "public_ips"]);
 
   let args = commands.get(command).unwrap();
 
@@ -85,6 +124,7 @@ pub fn run(command: &str, access_key: &str, secret_key: &str, region: &str) -> O
     .env("ALICLOUD_ACCESS_KEY", access_key)
     .env("ALICLOUD_SECRET_KEY", secret_key)
     .env("ALICLOUD_REGION", region)
+    .current_dir(dir)
     .args(args)
     .output()
   {
