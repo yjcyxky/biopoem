@@ -130,6 +130,7 @@ pub async fn run(args: &Arguments) {
   biopoem_api::makedir(&subdir);
 
   if args.destroy {
+    warn!("!!!Destroy Servers!!!");
     if let Some(destroy_output) = deployer::run(
       "destroy",
       subdir,
@@ -210,7 +211,9 @@ pub async fn run(args: &Arguments) {
           let public_ips: Vec<String> = serde_json::from_str(&outputs).unwrap();
 
           info!("Generate hosts file");
-          exists_exit(&PathBuf::from("hosts"), "The file hosts exists!");
+          match fs::remove_file("hosts") {
+            _ => {}
+          };
           let hosts = deployer::gen_hosts(&data, &public_ips);
           println!("{:?}, {:?}", hosts, data);
           let mut wtr = csv::Writer::from_writer(fs::File::create("hosts").unwrap());

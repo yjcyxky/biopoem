@@ -145,7 +145,10 @@ pub async fn run(args: &Arguments) {
 
         remote::init_env(&session, remote_workdir, &destfile, biopoem_bin_url).await;
         remote::launch_biopoem(&session, remote_workdir, "", 3000).await;
-        session.close().await.unwrap();
+        match session.close().await {
+          Err(msg) => warn!("{}", msg),
+          _ => {}
+        };
       }
       None => {
         error!(

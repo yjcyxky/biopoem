@@ -60,7 +60,7 @@ impl Config {
     }
 
     for i in 0..num_of_hosts {
-      ipaddrs.push(format!("172.16.0.{}", i));
+      ipaddrs.push(format!("172.16.0.{}", i + 1));
     }
 
     Config {
@@ -113,9 +113,9 @@ pub fn run(
 ) -> Option<String> {
   let mut commands = HashMap::new();
   commands.insert("init", vec!["init", "-input=false"]);
-  commands.insert("apply", vec!["apply", "-input=false"]);
+  commands.insert("apply", vec!["apply", "-auto-approve", "-input=false"]);
   commands.insert("show", vec!["show", "-json"]);
-  commands.insert("destroy", vec!["destroy", "-input=true"]);
+  commands.insert("destroy", vec!["destroy", "-auto-approve", "-input=false"]);
   commands.insert("output", vec!["output", "-json", "public_ips"]);
 
   let args = commands.get(command).unwrap();
