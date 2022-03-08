@@ -165,11 +165,13 @@ pub async fn run(args: &Arguments) {
     };
   }
 
+  let unit = 60;
+  let mut num = 1;
   // Get logs periodically
   loop {
-    println!("\n*** Minitoring ****\n");
+    println!("\n*** Monitoring at {} minutes ****\n", num * unit / 60);
 
-    time::sleep(time::Duration::from_secs(60)).await;
+    time::sleep(time::Duration::from_secs(unit)).await;
 
     let mut table = Table::new();
     table.add_row(row![
@@ -207,5 +209,6 @@ pub async fn run(args: &Arguments) {
     }
 
     table.printstd();
+    num += 1;
   }
 }
