@@ -17,7 +17,6 @@ name = "biopoem_api"
 path = "src/lib.rs"
 
 [dependencies]
-tera = "1.15.0"
 csv = "1.1"
 exitcode = "1.1.2"
 factotum = {path = "../factotum", version = ">=0.6.0"}
@@ -26,6 +25,8 @@ log = "0.4.11"
 log4rs = "0.13.0"
 openssh = "0.8.1"
 poem = {version = "1.2.27"}
+prettytable-rs = "^0.8"
+tera = "1.15.0"
 # poem-openapi = {version = "1.2", features = ["swagger-ui"]}
 # regex = "1.3.9"
 reqwest = "0.11.9"

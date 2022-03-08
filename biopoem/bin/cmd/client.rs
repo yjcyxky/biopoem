@@ -36,6 +36,10 @@ pub struct Arguments {
   #[structopt(name = "dag", short = "d", long = "dag")]
   dag: String,
 
+  /// Secret key.
+  #[structopt(name = "secret_key", short = "k", long = "secret_key")]
+  secret_key: String,
+
   /// Url of the dag file.
   #[structopt(name = "webhook", short = "W", long = "webhook", default_value = "")]
   webhook: String,

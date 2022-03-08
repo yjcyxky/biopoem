@@ -4,11 +4,14 @@ use log4rs;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::config::{Appender, Config, Logger, Root};
 use log4rs::encode::pattern::PatternEncoder;
+use reqwest;
 use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
 use std::{env, fs, process};
 use structopt::StructOpt;
+use tokio::{self, time};
+use prettytable::{Table, Row, Cell};
 
 /// Server for Biopoem
 #[derive(StructOpt, PartialEq, Debug)]
@@ -138,7 +141,8 @@ pub async fn run(args: &Arguments) {
         // Initialize (Upload biopoem and dag file.)
         let port = host.port().parse().unwrap();
         let remote_workdir = &args.remote_workdir;
-        let biopoem_bin_url = "http://nordata-cdn.oss-cn-shanghai.aliyuncs.com/biopoem/biopoem";
+        let biopoem_bin_url =
+          "http://nordata-cdn.oss-cn-shanghai.aliyuncs.com/biopoem/biopoem";
         let session = remote::init_session(host.ipaddr(), port, host.username(), &keyfile)
           .await
           .unwrap();
@@ -161,4 +165,36 @@ pub async fn run(args: &Arguments) {
   }
 
   // Get logs periodically
+  loop {
+    println!("\n*** Minitoring ****\n");
+
+    let mut table = Table::new();
+    table.add_row(row!["hostname", "status", "client_log", "init_log"]);
+    for host in &hosts {
+      let hostname = host.hostname().to_string();
+      let ipaddr = host.ipaddr().to_string();
+      let status_url = format!(
+        "http://{}:{}/status?secret_key=biopoem-N8kOaPq6",
+        ipaddr, 3000
+      );
+
+      let response = reqwest::get(status_url).await.unwrap();
+      let status = response.text().await.unwrap_or("Running".to_string());
+      let client_log_url = format!(
+        "http://{}:{}/log/client?secret_key=biopoem-N8kOaPq6",
+        ipaddr, 3000
+      );
+
+      let init_log_url = format!(
+        "http://{}:{}/log/init?secret_key=biopoem-N8kOaPq6",
+        ipaddr, 3000
+      );
+
+      table.add_row(row![hostname, status , client_log_url, init_log_url]);
+    }
+
+    table.printstd();
+
+    time::sleep(time::Duration::from_secs(60)).await;
+  }
 }
