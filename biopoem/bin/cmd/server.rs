@@ -1,17 +1,19 @@
 use biopoem_api::{server, server::dag, server::remote};
+use chrono;
 use log::LevelFilter;
 use log4rs;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::config::{Appender, Config, Logger, Root};
 use log4rs::encode::pattern::PatternEncoder;
+use prettytable::{Cell, Row, Table};
 use reqwest;
 use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use std::{env, fs, process};
 use structopt::StructOpt;
 use tokio::{self, time};
-use prettytable::{Table, Row, Cell};
 
 /// Server for Biopoem
 #[derive(StructOpt, PartialEq, Debug)]
@@ -141,8 +143,7 @@ pub async fn run(args: &Arguments) {
         // Initialize (Upload biopoem and dag file.)
         let port = host.port().parse().unwrap();
         let remote_workdir = &args.remote_workdir;
-        let biopoem_bin_url =
-          "http://nordata-cdn.oss-cn-shanghai.aliyuncs.com/biopoem/biopoem";
+        let biopoem_bin_url = "http://nordata-cdn.oss-cn-shanghai.aliyuncs.com/biopoem/biopoem";
         let session = remote::init_session(host.ipaddr(), port, host.username(), &keyfile)
           .await
           .unwrap();
@@ -169,7 +170,13 @@ pub async fn run(args: &Arguments) {
     println!("\n*** Minitoring ****\n");
 
     let mut table = Table::new();
-    table.add_row(row!["hostname", "status", "client_log", "init_log"]);
+    table.add_row(row![
+      "current",
+      "hostname",
+      "status",
+      "client_log",
+      "init_log"
+    ]);
     for host in &hosts {
       let hostname = host.hostname().to_string();
       let ipaddr = host.ipaddr().to_string();
@@ -190,7 +197,8 @@ pub async fn run(args: &Arguments) {
         ipaddr, 3000
       );
 
-      table.add_row(row![hostname, status , client_log_url, init_log_url]);
+      let now = chrono::Local::now().format("%Y-%m-%d][%H:%M:%S");
+      table.add_row(row![now, hostname, status, client_log_url, init_log_url]);
     }
 
     table.printstd();

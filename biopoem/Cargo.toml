@@ -17,6 +17,7 @@ name = "biopoem_api"
 path = "src/lib.rs"
 
 [dependencies]
+chrono = "0.4.19"
 csv = "1.1"
 exitcode = "1.1.2"
 factotum = {path = "../factotum", version = ">=0.6.0"}

@@ -4,6 +4,8 @@ extern crate log;
 extern crate lazy_static;
 #[macro_use]
 extern crate prettytable;
+#[macro_use]
+extern crate chrono;
 
 mod cmd;
 
