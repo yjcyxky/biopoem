@@ -1,12 +1,26 @@
-use poem::{handler, web::Path};
+use poem::{handler, web::Query, Result};
+use serde::Deserialize;
 use std::fs;
+
+#[derive(Debug, Deserialize)]
+pub struct Params {
+  secret_key: String,
+}
 
 fn check_secret_key(secret_key: String) -> bool {
   return secret_key == "biopoem-N8kOaPq6".to_string();
 }
 
+fn get_secret_key(res: Result<Query<Params>>) -> String {
+  return match res {
+    Ok(Query(params)) => params.secret_key,
+    Err(err) => "Not valid query".to_string(),
+  };
+}
+
 #[handler]
-pub async fn status(Path(secret_key): Path<String>) -> String {
+pub async fn status(res: Result<Query<Params>>) -> String {
+  let secret_key = get_secret_key(res);
   if check_secret_key(secret_key) {
     let status = match fs::read_to_string("status") {
       Err(msg) => "Running".to_string(),
@@ -20,7 +34,8 @@ pub async fn status(Path(secret_key): Path<String>) -> String {
 }
 
 #[handler]
-pub async fn client_log(Path(secret_key): Path<String>) -> String {
+pub async fn client_log(res: Result<Query<Params>>) -> String {
+  let secret_key = get_secret_key(res);
   if check_secret_key(secret_key) {
     let task_log = match fs::read_to_string("client.log") {
       Err(msg) => msg.to_string(),
@@ -34,7 +49,8 @@ pub async fn client_log(Path(secret_key): Path<String>) -> String {
 }
 
 #[handler]
-pub async fn init_log(Path(secret_key): Path<String>) -> String {
+pub async fn init_log(res: Result<Query<Params>>) -> String {
+  let secret_key = get_secret_key(res);
   if check_secret_key(secret_key) {
     let init_log = match fs::read_to_string("init.log") {
       Err(msg) => msg.to_string(),
