@@ -96,7 +96,7 @@ pub async fn launch_biopoem(session: &Session, remote_workdir: &str, webhook_url
   match session
     .command("nohup")
     .raw_arg(format!(
-      "{}/biopoem client --workdir {} --host 0.0.0.0 --webhook {} --port {} --dag dag.factfile > {}/init.log 2>&1 &",
+      "{}/biopoem client --workdir {} --host 0.0.0.0 --webhook {} --port {} --dag dag.factfile --secret_key biopoem-secret-key > {}/init.log 2>&1 &",
       remote_workdir, remote_workdir, webhook_url, port, remote_workdir
     ))
     .output()

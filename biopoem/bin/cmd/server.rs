@@ -169,6 +169,8 @@ pub async fn run(args: &Arguments) {
   loop {
     println!("\n*** Minitoring ****\n");
 
+    time::sleep(time::Duration::from_secs(60)).await;
+
     let mut table = Table::new();
     table.add_row(row![
       "current",
@@ -185,8 +187,11 @@ pub async fn run(args: &Arguments) {
         ipaddr, 3000
       );
 
-      let response = reqwest::get(status_url).await.unwrap();
-      let status = response.text().await.unwrap_or("Running".to_string());
+      let status = match reqwest::get(status_url).await {
+        Err(msg) => "Connection Failed".to_string(),
+        Ok(response) => response.text().await.unwrap_or("Running".to_string()),
+      };
+
       let client_log_url = format!(
         "http://{}:{}/log/client?secret_key=biopoem-N8kOaPq6",
         ipaddr, 3000
@@ -202,7 +207,5 @@ pub async fn run(args: &Arguments) {
     }
 
     table.printstd();
-
-    time::sleep(time::Duration::from_secs(60)).await;
   }
 }
