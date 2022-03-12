@@ -11,6 +11,7 @@ mod cmd;
 
 use cmd::client;
 use cmd::deployer;
+use cmd::query;
 use cmd::server;
 use structopt::StructOpt;
 
@@ -39,20 +40,25 @@ enum SubCommands {
   Server(server::Arguments),
   #[structopt(name = "deployer")]
   Deployer(deployer::Arguments),
+  #[structopt(name = "query")]
+  Query(query::Arguments),
 }
 
 fn main() {
   let opt = Opt::from_args();
 
   match opt.cmd {
-    SubCommands::Client(arguments) => {
-      client::run(&arguments);
+    SubCommands::Deployer(arguments) => {
+      deployer::run(&arguments);
     }
     SubCommands::Server(arguments) => {
       server::run(&arguments);
     }
-    SubCommands::Deployer(arguments) => {
-      deployer::run(&arguments);
+    SubCommands::Query(arguments) => {
+      query::run(&arguments);
+    }
+    SubCommands::Client(arguments) => {
+      client::run(&arguments);
     }
   }
 }

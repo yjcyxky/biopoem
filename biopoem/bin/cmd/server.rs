@@ -1,19 +1,14 @@
 use biopoem_api::{server, server::dag, server::remote};
-use chrono;
 use log::LevelFilter;
 use log4rs;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::config::{Appender, Config, Logger, Root};
 use log4rs::encode::pattern::PatternEncoder;
-use prettytable::{Cell, Row, Table};
-use reqwest;
 use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
-use std::time::SystemTime;
 use std::{env, fs, process};
 use structopt::StructOpt;
-use tokio::{self, time};
 
 /// Server for Biopoem
 #[derive(StructOpt, PartialEq, Debug)]
@@ -122,10 +117,6 @@ pub async fn run(args: &Arguments) {
     _ => {}
   };
 
-  // Deploy servers by terraform
-
-  // Save hosts into working directory
-
   let hosts = server::host::read_hosts(&args.hosts);
   for host in &hosts {
     // Generate dag file.
@@ -163,52 +154,5 @@ pub async fn run(args: &Arguments) {
         );
       }
     };
-  }
-
-  let unit = 60;
-  let mut num = 1;
-  // Get logs periodically
-  loop {
-    println!("\n*** Monitoring at {} minutes ****\n", num * unit / 60);
-
-    time::sleep(time::Duration::from_secs(unit)).await;
-
-    let mut table = Table::new();
-    table.add_row(row![
-      "current",
-      "hostname",
-      "status",
-      "client_log",
-      "init_log"
-    ]);
-    for host in &hosts {
-      let hostname = host.hostname().to_string();
-      let ipaddr = host.ipaddr().to_string();
-      let status_url = format!(
-        "http://{}:{}/status?secret_key=biopoem-N8kOaPq6",
-        ipaddr, 3000
-      );
-
-      let status = match reqwest::get(status_url).await {
-        Err(msg) => "Connection Failed".to_string(),
-        Ok(response) => response.text().await.unwrap_or("Running".to_string()),
-      };
-
-      let client_log_url = format!(
-        "http://{}:{}/log/client?secret_key=biopoem-N8kOaPq6",
-        ipaddr, 3000
-      );
-
-      let init_log_url = format!(
-        "http://{}:{}/log/init?secret_key=biopoem-N8kOaPq6",
-        ipaddr, 3000
-      );
-
-      let now = chrono::Local::now().format("%Y-%m-%d][%H:%M:%S");
-      table.add_row(row![now, hostname, status, client_log_url, init_log_url]);
-    }
-
-    table.printstd();
-    num += 1;
   }
 }
