@@ -1,8 +1,10 @@
 use super::init_logger;
+use super::notexists_exit;
 use biopoem_api::server;
 use chrono;
 use prettytable::Table;
 use reqwest;
+use std::path::PathBuf;
 use std::process;
 use structopt::StructOpt;
 use tokio::{self, time};
@@ -35,6 +37,11 @@ pub async fn run(args: &Arguments) {
     error!(target:"stdout", "Log initialization error, {}", log);
     process::exit(biopoem_api::PROC_OTHER_ERROR);
   };
+
+  notexists_exit(
+    &PathBuf::from(&args.hosts),
+    &format!("No such file: {} file doesn't exist.", &args.hosts),
+  );
 
   let hosts = server::host::read_hosts(&args.hosts);
   let unit = 60 * args.interval;

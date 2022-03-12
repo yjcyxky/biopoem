@@ -31,7 +31,7 @@ fn exists_exit(path: &PathBuf, msg: &str) {
 fn init_logger(tag_name: &str) -> Result<log4rs::Handle, String> {
   let stdout = ConsoleAppender::builder()
     .encoder(Box::new(PatternEncoder::new(
-      &(format!("[{}]", tag_name) + " {d} - {l} -{t} - {m}{n}"),
+      &(format!("[{}]", tag_name) + " {d} - {h({l} - {t} - {m}{n})}"),
     )))
     .build();
 
@@ -57,7 +57,7 @@ fn init_logger(tag_name: &str) -> Result<log4rs::Handle, String> {
 fn init_file_logger(tag_name: &str, logpath: &str) -> Result<log4rs::Handle, String> {
   let stdout = ConsoleAppender::builder()
     .encoder(Box::new(PatternEncoder::new(
-      &(format!("[{}]", tag_name) + " {d} - {l} -{t} - {m}{n}"),
+      &(format!("[{}]", tag_name) + " {d} - {h({l} - {t} - {m}{n})}"),
     )))
     .build();
 
