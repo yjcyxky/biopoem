@@ -1,20 +1,14 @@
 use biopoem_api::{self, client};
 use factotum::{execute_dag, is_valid_url};
-use log::LevelFilter;
-use log4rs;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Config, Logger, Root};
-use log4rs::encode::pattern::PatternEncoder;
 use poem::{
   error::NotFoundError, http::StatusCode, listener::TcpListener, EndpointExt, Response, Server,
 };
-use std::error::Error;
 use std::fs::{self, File};
-use std::io::{copy, Write};
+use std::io::{copy};
 use std::path::Path;
 use std::{env, process};
 use structopt::StructOpt;
+use super::{init_file_logger};
 
 /// Client for Biopoem
 #[derive(StructOpt, PartialEq, Debug)]
@@ -58,44 +52,6 @@ pub async fn download_dag_file(dag_file_url: &str, destfile: &str) {
   info!(target:"stdout", "Save {} to {}", dag_file_url, destfile);
 }
 
-fn init_logger() -> Result<log4rs::Handle, String> {
-  let stdout = ConsoleAppender::builder()
-    .encoder(Box::new(PatternEncoder::new(
-      "[Client] {d} - {l} -{t} - {m}{n}",
-    )))
-    .build();
-
-  match fs::remove_file("client.log") {
-    _ => {}
-  };
-
-  let file = FileAppender::builder()
-    .encoder(Box::new(PatternEncoder::new(
-      "[File] {d} - {l} - {t} - {m}{n}",
-    )))
-    .build("client.log")
-    .unwrap();
-
-  let config = Config::builder()
-    .appender(Appender::builder().build("stdout", Box::new(stdout)))
-    .appender(Appender::builder().build("file", Box::new(file)))
-    .logger(
-      Logger::builder()
-        .appender("stdout")
-        .additive(false)
-        .build("stdout", LevelFilter::Info),
-    )
-    .build(Root::builder().appender("file").build(LevelFilter::Info))
-    .unwrap();
-
-  log4rs::init_config(config).map_err(|e| {
-    format!(
-      "couldn't initialize log configuration. Reason: {}",
-      e.description()
-    )
-  })
-}
-
 #[tokio::main]
 pub async fn run(args: &Arguments) {
   let workdir = &args.workdir;
@@ -119,7 +75,7 @@ pub async fn run(args: &Arguments) {
     _ => {}
   };
 
-  if let Err(log) = init_logger() {
+  if let Err(log) = init_file_logger("Client", "client.log") {
     error!(target:"stdout", "Log initialization error, {}", log);
     process::exit(biopoem_api::PROC_OTHER_ERROR);
   };

@@ -1,14 +1,9 @@
 use biopoem_api::deployer;
-use log::LevelFilter;
-use log4rs;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::config::{Appender, Config, Logger, Root};
-use log4rs::encode::pattern::PatternEncoder;
-use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
 use std::{env, fs, process};
 use structopt::StructOpt;
+use super::{notexists_exit, exists_exit, init_logger};
 
 /// Deployer for Biopoem
 #[derive(StructOpt, PartialEq, Debug)]
@@ -75,52 +70,12 @@ pub struct Arguments {
   destroy: bool,
 }
 
-fn notexists_exit(path: &PathBuf, msg: &str) {
-  if !Path::exists(path.as_path()) {
-    error!("{}", msg);
-    process::exit(biopoem_api::PROC_OTHER_ERROR);
-  }
-}
-
-fn exists_exit(path: &PathBuf, msg: &str) {
-  if Path::exists(path.as_path()) {
-    error!("{}", msg);
-    process::exit(biopoem_api::PROC_OTHER_ERROR);
-  }
-}
-
-fn init_logger() -> Result<log4rs::Handle, String> {
-  let stdout = ConsoleAppender::builder()
-    .encoder(Box::new(PatternEncoder::new(
-      "[Deployment] {d} - {l} -{t} - {m}{n}",
-    )))
-    .build();
-
-  let config = Config::builder()
-    .appender(Appender::builder().build("stdout", Box::new(stdout)))
-    .logger(
-      Logger::builder()
-        .appender("stdout")
-        .additive(false)
-        .build("stdout", LevelFilter::Info),
-    )
-    .build(Root::builder().appender("stdout").build(LevelFilter::Info))
-    .unwrap();
-
-  log4rs::init_config(config).map_err(|e| {
-    format!(
-      "couldn't initialize log configuration. Reason: {}",
-      e.description()
-    )
-  })
-}
-
 #[tokio::main]
 pub async fn run(args: &Arguments) {
   let workdir = &args.workdir;
   biopoem_api::makedir(workdir);
 
-  if let Err(log) = init_logger() {
+  if let Err(log) = init_logger("Deployment") {
     error!(target:"stdout", "Log initialization error, {}", log);
     process::exit(biopoem_api::PROC_OTHER_ERROR);
   };

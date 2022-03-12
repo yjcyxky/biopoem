@@ -1,14 +1,9 @@
 use biopoem_api::{server, server::dag, server::remote};
-use log::LevelFilter;
-use log4rs;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::config::{Appender, Config, Logger, Root};
-use log4rs::encode::pattern::PatternEncoder;
-use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
 use std::{env, fs, process};
 use structopt::StructOpt;
+use super::init_file_logger;
 
 /// Server for Biopoem
 #[derive(StructOpt, PartialEq, Debug)]
@@ -59,36 +54,6 @@ pub struct Arguments {
   remote_workdir: String,
 }
 
-fn init_logger() -> Result<log4rs::Handle, String> {
-  let stdout = ConsoleAppender::builder()
-    .encoder(Box::new(PatternEncoder::new(
-      "[Server] {d} - {l} -{t} - {m}{n}",
-    )))
-    .build();
-
-  match fs::remove_file("server.log") {
-    _ => {}
-  };
-
-  let config = Config::builder()
-    .appender(Appender::builder().build("stdout", Box::new(stdout)))
-    .logger(
-      Logger::builder()
-        .appender("stdout")
-        .additive(false)
-        .build("stdout", LevelFilter::Info),
-    )
-    .build(Root::builder().appender("stdout").build(LevelFilter::Info))
-    .unwrap();
-
-  log4rs::init_config(config).map_err(|e| {
-    format!(
-      "couldn't initialize log configuration. Reason: {}",
-      e.description()
-    )
-  })
-}
-
 #[tokio::main]
 pub async fn run(args: &Arguments) {
   let workdir = &args.workdir;
@@ -103,7 +68,7 @@ pub async fn run(args: &Arguments) {
   let keypath = PathBuf::from(&args.keyfile);
   let keyfile = fs::canonicalize(keypath).unwrap();
 
-  if let Err(log) = init_logger() {
+  if let Err(log) = init_file_logger("Server", "server.log") {
     error!(target:"stdout", "Log initialization error, {}", log);
     process::exit(biopoem_api::PROC_OTHER_ERROR);
   };
