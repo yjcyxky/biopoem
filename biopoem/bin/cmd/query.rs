@@ -50,8 +50,6 @@ pub async fn run(args: &Arguments) {
   loop {
     println!("\n*** Monitoring at {} minutes ****\n", num * unit / 60);
 
-    time::sleep(time::Duration::from_secs(unit)).await;
-
     let mut table = Table::new();
     table.add_row(row![
       "current",
@@ -94,6 +92,8 @@ pub async fn run(args: &Arguments) {
     // Run query once.
     if !args.online {
       break;
+    } else {
+      time::sleep(time::Duration::from_secs(unit)).await;
     }
   }
 }

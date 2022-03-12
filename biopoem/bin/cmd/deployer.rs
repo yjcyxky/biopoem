@@ -1,9 +1,9 @@
-use biopoem_api::deployer;
+use super::{exists_exit, init_logger, notexists_exit};
+use biopoem_api::{self, deployer};
 use std::path::Path;
 use std::path::PathBuf;
 use std::{env, fs, process};
 use structopt::StructOpt;
-use super::{notexists_exit, exists_exit, init_logger};
 
 /// Deployer for Biopoem
 #[derive(StructOpt, PartialEq, Debug)]
@@ -68,6 +68,10 @@ pub struct Arguments {
   /// Activate destroy mode.
   #[structopt(name = "destroy", short = "d", long = "destroy")]
   destroy: bool,
+
+  /// Update the state but not delete.
+  #[structopt(name = "update", short = "u", long = "update")]
+  update: bool,
 }
 
 #[tokio::main]
@@ -93,14 +97,24 @@ pub async fn run(args: &Arguments) {
       &args.secret_key,
       &args.region,
     ) {
-      info!("Destroy Servers \n\n {}", destroy_output);
+      match biopoem_api::handle_output(&destroy_output) {
+        biopoem_api::Status::Failed => {
+          process::exit(biopoem_api::PROC_OTHER_ERROR);
+        }
+        _ => {}
+      }
     }
   } else {
     let tmplpath = PathBuf::from(&args.template);
-    notexists_exit(
-      &tmplpath,
-      &format!("Not found the file {}", tmplpath.display()),
-    );
+    if args.update {
+      warn!("Inconsistent state issues may occur, please check all related resources on the cloud platform.");
+    } else {
+      notexists_exit(
+        &tmplpath,
+        &format!("Not found the file {}", tmplpath.display()),
+      );
+    }
+
     let template = fs::canonicalize(tmplpath).unwrap();
 
     let destfile = Path::new(&subdir).join("terraform.tf");
@@ -140,7 +154,12 @@ pub async fn run(args: &Arguments) {
           &args.secret_key,
           &args.region,
         ) {
-          info!("Initialize Terraform \n\n {}", init_output);
+          match biopoem_api::handle_output(&init_output) {
+            biopoem_api::Status::Failed => {
+              process::exit(biopoem_api::PROC_OTHER_ERROR);
+            }
+            _ => {}
+          }
         }
 
         // Deploy Servers
@@ -151,7 +170,12 @@ pub async fn run(args: &Arguments) {
           &args.secret_key,
           &args.region,
         ) {
-          info!("Deploy Servers \n\n {}", apply_output);
+          match biopoem_api::handle_output(&apply_output) {
+            biopoem_api::Status::Failed => {
+              process::exit(biopoem_api::PROC_OTHER_ERROR);
+            }
+            _ => {}
+          }
         }
 
         // Get outputs
@@ -162,20 +186,27 @@ pub async fn run(args: &Arguments) {
           &args.secret_key,
           &args.region,
         ) {
-          info!("Output {}", outputs);
-          let public_ips: Vec<String> = serde_json::from_str(&outputs).unwrap();
+          match biopoem_api::handle_output(&outputs) {
+            biopoem_api::Status::Failed => {
+              process::exit(biopoem_api::PROC_OTHER_ERROR);
+            }
+            biopoem_api::Status::Success => {
+              let outputs = biopoem_api::vecu8_to_string(&outputs.stdout);
+              let public_ips: Vec<String> = serde_json::from_str(&outputs).unwrap();
 
-          info!("Generate hosts file");
-          match fs::remove_file("hosts") {
-            _ => {}
-          };
-          let hosts = deployer::gen_hosts(&data, &public_ips);
-          println!("{:?}, {:?}", hosts, data);
-          let mut wtr = csv::Writer::from_writer(fs::File::create("hosts").unwrap());
-          for host in hosts {
-            wtr.serialize(host).unwrap();
+              info!("Generate hosts file");
+              match fs::remove_file("hosts") {
+                _ => {}
+              };
+              let hosts = deployer::gen_hosts(&data, &public_ips);
+              println!("{:?}, {:?}", hosts, data);
+              let mut wtr = csv::Writer::from_writer(fs::File::create("hosts").unwrap());
+              for host in hosts {
+                wtr.serialize(host).unwrap();
+              }
+              wtr.flush().unwrap();
+            }
           }
-          wtr.flush().unwrap();
         }
       }
       None => {}

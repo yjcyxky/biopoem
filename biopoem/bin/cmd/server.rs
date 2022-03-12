@@ -3,7 +3,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::{env, fs, process};
 use structopt::StructOpt;
-use super::init_file_logger;
+use super::init_logger;
 
 /// Server for Biopoem
 #[derive(StructOpt, PartialEq, Debug)]
@@ -68,7 +68,7 @@ pub async fn run(args: &Arguments) {
   let keypath = PathBuf::from(&args.keyfile);
   let keyfile = fs::canonicalize(keypath).unwrap();
 
-  if let Err(log) = init_file_logger("Server", "server.log") {
+  if let Err(log) = init_logger("Server") {
     error!(target:"stdout", "Log initialization error, {}", log);
     process::exit(biopoem_api::PROC_OTHER_ERROR);
   };

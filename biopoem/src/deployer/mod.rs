@@ -1,7 +1,7 @@
-use log::{error, info};
+use log::{error};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::process::Command;
+use std::process::{Command, Output};
 use std::str;
 use tera::{Context, Tera};
 
@@ -95,22 +95,13 @@ pub fn render_template(template: &str, data: &Config) -> Option<String> {
   Some(Tera::one_off(template, &context, false).unwrap())
 }
 
-fn vecu8_to_string(data: &Vec<u8>) -> String {
-  let s = match str::from_utf8(data) {
-    Ok(v) => v.to_string(),
-    Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-  };
-
-  return s;
-}
-
 pub fn run(
   command: &str,
   dir: &str,
   access_key: &str,
   secret_key: &str,
   region: &str,
-) -> Option<String> {
+) -> Option<Output> {
   let mut commands = HashMap::new();
   commands.insert("init", vec!["init", "-input=false"]);
   commands.insert("apply", vec!["apply", "-auto-approve", "-input=false"]);
@@ -133,8 +124,7 @@ pub fn run(
       return None;
     }
     Ok(output) => {
-      info!("{:?}", output);
-      return Some(vecu8_to_string(&output.stdout));
+      return Some(output);
     }
   };
 }
